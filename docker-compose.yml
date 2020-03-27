@@ -127,7 +127,7 @@ services:
     volumes:
       - ${USERDIR}/docker/radarr:/config
       - ${USERDIR}/Downloads/completed:/downloads/completed
-      - /disks/Movies:/movies
+      - /location/to/your/files:/movies
       - /etc/localtime:/etc/localtime:ro
       - ${USERDIR}/docker/shared:/shared
     ports:
@@ -145,8 +145,7 @@ services:
     volumes:
       - ${USERDIR}/docker/sonarr:/config
       - ${USERDIR}/Downloads/completed:/downloads/completed
-      - /disks/TV:/tv
-      - /disks/Anime:/anime
+      - /location/to/your/files:/tv
       - /etc/localtime:/etc/localtime:ro
       - ${USERDIR}/docker/shared:/shared
     ports:
