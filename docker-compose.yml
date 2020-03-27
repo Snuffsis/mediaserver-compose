@@ -1,0 +1,229 @@
+#Requirement: Set environmental variables: USERDIR, PUID, PGID, MYSQL_ROOT_PASSWORD, and TZ in /etc/environment
+version: "3.6"
+services:
+######### FRONTENDS ##########
+#Portainer - WebUI for Containers
+  portainer:
+    image: portainer/portainer
+    hostname: portainer
+    container_name: portainer
+    restart: always
+    command: -H unix:///var/run/docker.sock
+    ports:
+      - "XXXXX:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${USERDIR}/docker/portainer/data:/data
+      - ${USERDIR}/docker/shared:/shared
+    environment:
+      - TZ=${TZ}
+  organizr:
+    container_name: organizr
+    restart: always
+    image: lsiocommunity/organizr
+    volumes:
+      - ${USERDIR}/docker/organizr:/config
+      - ${USERDIR}/docker/shared:/shared
+    ports:
+      - "XXXXX:80"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+
+######### DOCKER RELATED ##########
+# Watchtower - Automatic Update of Containers/Apps
+  watchtower:
+    container_name: watchtower
+    hostname: watchtower
+    restart: always
+    image: v2tec/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --schedule "0 0 4 * * *" --cleanup
+    
+######### DOWNLOADERS ##########
+# Transmission with VPN – Bittorrent Downloader
+  transmission-vpn:
+    container_name: transmission-vpn
+    hostname: transmission
+    image: haugene/transmission-openvpn
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
+    restart: always
+    ports:
+    - "XXXXX:9091"
+    dns:
+      - 1.1.1.1
+      - 1.0.0.1
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${USERDIR}/docker/transmission-vpn:/data
+      - ${USERDIR}/docker/shared:/shared
+      - ${USERDIR}/Downloads:/downloads/watch
+      - ${USERDIR}/Downloads/completed:/downloads/completed
+      - ${USERDIR}/Downloads/incomplete:/downloads/incomplete
+    environment:
+      - OPENVPN_PROVIDER=XXXX
+      - OPENVPN_USERNAME=XXXXXXX
+      - OPENVPN_PASSWORD=XXXXXXXXXXXXX
+      - OPENVPN_CONFIG=XXXXXXXXXXXXX
+      - OPENVPN_OPTS=--inactive 3600 --ping 10 --ping-exit 60
+      - LOCAL_NETWORK=X.X.X.X/24
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - TRANSMISSION_RPC_AUTHENTICATION_REQUIRED=true
+      - TRANSMISSION_RPC_HOST_WHITELIST="127.0.0.1,192.168.*.*"
+      - TRANSMISSION_RPC_PASSWORD=${TRANSMISSION_RPC_PASSWORD}
+      - TRANSMISSION_RPC_USERNAME=${TRANSMISSION_RPC_USERNAME}
+      - TRANSMISSION_UMASK=002
+      - TRANSMISSION_RATIO_LIMIT=2
+      - TRANSMISSION_RATIO_LIMIT_ENABLED=true
+      - TRANSMISSION_ALT_SPEED_DOWN=2000
+      - TRANSMISSION_ALT_SPEED_ENABLED=false
+      - TRANSMISSION_ALT_SPEED_UP=15
+      - TRANSMISSION_SPEED_LIMIT_DOWN=6000
+      - TRANSMISSION_SPEED_LIMIT_DOWN_ENABLED=false
+      - TRANSMISSION_SPEED_LIMIT_UP=30
+      - TRANSMISSION_SPEED_LIMIT_UP_ENABLED=false
+      - TRANSMISSION_INCOMPLETE_DIR=/downloads/incomplete
+      - TRANSMISSION_INCOMPLETE_DIR_ENABLED=true
+      - TRANSMISSION_WATCH_DIR=/downloads
+      - TRANSMISSION_WATCH_DIR_ENABLED=true
+      - TRANSMISSION_DOWNLOAD_DIR=/downloads/completed
+      - TRANSMISSION_PEER_PORT=58433
+      - TRANSMISSION_PEER_LIMIT_PER_TORRENT=5000
+      - TRANSMISSION_PEER_LIMIT_GLOBAL=20000
+      - TRANSMISSION_MAX_PEERS_GLOBAL=50000
+      - TRANSMISSION_DOWNLOAD_QUEUE_SIZE=10
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+# SABnzbd – Usenet (NZB) Downloader
+  sabnzbd:
+    image: "linuxserver/sabnzbd"
+    hostname: sabnzbd
+    container_name: "sabnzbd"
+    volumes:
+      - ${USERDIR}/docker/sabnzbd:/config
+      - ${USERDIR}/Downloads/completed:/downloads
+      - ${USERDIR}/Downloads/incomplete:/incomplete-downloads
+      - ${USERDIR}/docker/shared:/shared
+    ports:
+        - "XXXXX:8080"
+    restart: always
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+######### PERSONAL VIDEO RECORDERS ##########
+# Radarr – Movie Download and Management
+  radarr:
+    image: "linuxserver/radarr"
+    hostname: radarr
+    container_name: "radarr"
+    volumes:
+      - ${USERDIR}/docker/radarr:/config
+      - ${USERDIR}/Downloads/completed:/downloads/completed
+      - /disks/Movies:/movies
+      - /etc/localtime:/etc/localtime:ro
+      - ${USERDIR}/docker/shared:/shared
+    ports:
+      - "XXXXX:7878"
+    restart: always
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+# Sonarr – TV Show Download and Management
+  sonarr:
+    image: "linuxserver/sonarr"
+    hostname: sonarr
+    container_name: "sonarr"
+    volumes:
+      - ${USERDIR}/docker/sonarr:/config
+      - ${USERDIR}/Downloads/completed:/downloads/completed
+      - /disks/TV:/tv
+      - /disks/Anime:/anime
+      - /etc/localtime:/etc/localtime:ro
+      - ${USERDIR}/docker/shared:/shared
+    ports:
+        - "XXXXX:8989"
+    restart: always
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+######## MEDIA SERVER APPS ########
+# Tautulli (aka PlexPy) – Monitoring Plex Usage
+  tautulli:
+    container_name: tautulli
+    hostname: tautulli
+    restart: always
+    image: linuxserver/tautulli
+    volumes:
+      - ${USERDIR}/docker/tautulli/config:/config
+      - ${USERDIR}/docker/tautulli/logs:/logs:ro
+      - ${USERDIR}/docker/shared:/shared
+    ports:
+      - "XXXXX:8181"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+# Ombi – Accept Requests for your Media Server
+  ombi:
+    container_name: ombi
+    hostname: ombi
+    restart: always
+    image: linuxserver/ombi
+    volumes:
+      - ${USERDIR}/docker/ombi:/config
+      - ${USERDIR}/docker/shared:/shared
+    ports:
+      - "XXXXX:3579"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+######### SEARCHERS ##########
+# Jackett - Torrent Proxy
+  jackett:
+    image: "linuxserver/jackett"
+    container_name: "jackett"
+    volumes:
+      - ${USERDIR}/docker/jackett:/config
+      - ${USERDIR}/Downloads/completed:/downloads/completed
+      - /etc/localtime:/etc/localtime:ro
+      - ${USERDIR}/docker/shared:/shared
+    ports:
+      - "XXXXX:9117"
+    restart: always
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+######### MONITORING #########
+# Netdata - System-wide monitoring
+  netdata:
+    image: netdata/netdata
+    hostname: (Replace with your hostname)
+    container_name: "netdata"
+    restart: always
+    ports:
+      - XXXXX:19999
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - /etc/os-release:/host/etc/os-release:ro
+      - /etc/passwd:/host/etc/passwd:ro
+      - /etc/group:/host/etc/group:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - PGID=${PGID}
