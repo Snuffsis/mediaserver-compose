@@ -280,7 +280,7 @@ services:
       - ${USERDIR}/docker/ombi:/config
       - ${USERDIR}/docker/shared:/shared
     ports:
-      - "9097:3579"
+      - "XXXXX:3579"
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
