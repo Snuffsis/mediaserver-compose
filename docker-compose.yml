@@ -22,21 +22,6 @@ services:
     environment:
       - TZ=${TZ}
 
-# Organizr - WebUI for home management
-#  organizr:
-#    container_name: organizr
-#    restart: always
-#    image: lsiocommunity/organizr
-#    volumes:
-#      - ${USERDIR}/docker/organizr:/config
-#      - ${USERDIR}/docker/shared:/shared
-#    ports:
-#      - "80:80"
-#    environment:
-#      - PUID=${PUID}
-#      - PGID=${PGID}
-#      - TZ=${TZ}
-
 # Heimdall - WebUI for home management
   heimdall:
     container_name: heimdall
@@ -51,20 +36,6 @@ services:
       - PUID=${PUID}
       - PUID=${PGID}
       - TZ=${TZ}
-
-# WebUI for MariaDB
-#  phpmyadmin:
-#    hostname: phpmyadmin
-#    container_name: phpmyadmin
-#    image: phpmyadmin/phpmyadmin
-#    restart: always
-#    links:
-#      - mariadb:db
-#    ports:
-#      - 81:80
-#    environment:
-#      - PMA_HOST=mariadb
-#      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
 
 ######### DOCKER RELATED ##########
 
@@ -191,8 +162,6 @@ services:
       - TRANSMISSION_MAX_PEERS_GLOBAL=2000
       - TRANSMISSION_DOWNLOAD_QUEUE_SIZE=10
       - TRANSMISSION_WEB_UI=flood
-#    sysctls:
-#      - net.ipv6.conf.all.disable_ipv6=0
 
 ######### PERSONAL VIDEO RECORDERS ##########
 
@@ -280,7 +249,7 @@ services:
         #- "32414:32414/udp"
     environment:
       - TZ=${TZ}
-      - HOSTNAME="XXXXX"
+      - HOSTNAME="Snufflix"
       - PLEX_UID=${PUID}
       - PLEX_GID=${PGID}
 
@@ -307,12 +276,11 @@ services:
     hostname: ombi
     restart: always
     image: ghcr.io/linuxserver/ombi
-    #    image: linuxserver/ombi:version-v4.0.720
     volumes:
       - ${USERDIR}/docker/ombi:/config
       - ${USERDIR}/docker/shared:/shared
     ports:
-      - "XXXXX:3579"
+      - "9097:3579"
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
@@ -364,7 +332,7 @@ services:
 #     container_name: "netdata"
 #     restart: always
 #     ports:
-#       - XXXXX:19999
+#       - 19999:19999
 #     cap_add:
 #       - SYS_PTRACE
 #     security_opt:
