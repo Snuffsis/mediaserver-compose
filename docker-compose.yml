@@ -1,10 +1,14 @@
-#Requirement: Set environmental variables: USERDIR, PUID, PGID, MYSQL_ROOT_PASSWORD, and TZ in /etc/environment
+#Reference: https://www.smarthomebeginner.com/docker-home-media-server-2018-basic
+#Requirement: Set environmental variables: USERDIR, PUID, PGID, MYSQL_ROOT_PASSWORD, and TZ as explained in the reference.
+
 version: "3.6"
 services:
+
 ######### FRONTENDS ##########
-#Portainer - WebUI for Containers
+
+ #Portainer - WebUI for Containers
   portainer:
-    image: portainer/portainer
+    image: portainer/portainer-ce
     hostname: portainer
     container_name: portainer
     restart: always
@@ -17,21 +21,53 @@ services:
       - ${USERDIR}/docker/shared:/shared
     environment:
       - TZ=${TZ}
-  organizr:
-    container_name: organizr
+
+# Organizr - WebUI for home management
+#  organizr:
+#    container_name: organizr
+#    restart: always
+#    image: lsiocommunity/organizr
+#    volumes:
+#      - ${USERDIR}/docker/organizr:/config
+#      - ${USERDIR}/docker/shared:/shared
+#    ports:
+#      - "80:80"
+#    environment:
+#      - PUID=${PUID}
+#      - PGID=${PGID}
+#      - TZ=${TZ}
+
+# Heimdall - WebUI for home management
+  heimdall:
+    container_name: heimdall
     restart: always
-    image: lsiocommunity/organizr
+    image: ghcr.io/linuxserver/heimdall
     volumes:
-      - ${USERDIR}/docker/organizr:/config
+      - ${USERDIR}/docker/heimdall:/config
       - ${USERDIR}/docker/shared:/shared
     ports:
       - "XXXXX:80"
     environment:
       - PUID=${PUID}
-      - PGID=${PGID}
+      - PUID=${PGID}
       - TZ=${TZ}
 
+# WebUI for MariaDB
+#  phpmyadmin:
+#    hostname: phpmyadmin
+#    container_name: phpmyadmin
+#    image: phpmyadmin/phpmyadmin
+#    restart: always
+#    links:
+#      - mariadb:db
+#    ports:
+#      - 81:80
+#    environment:
+#      - PMA_HOST=mariadb
+#      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+
 ######### DOCKER RELATED ##########
+
 # Watchtower - Automatic Update of Containers/Apps
   watchtower:
     container_name: watchtower
@@ -41,8 +77,67 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     command: --schedule "0 0 4 * * *" --cleanup
-    
+
+######### UTILITIES ##########
+
+#MariaDB – Database Server for your Apps
+  mariadb:
+    image: "linuxserver/mariadb"
+    container_name: "mariadb"
+    hostname: mariadb
+    volumes:
+        - ${USERDIR}/docker/mariadb:/config
+    ports:
+      - target: XXXXX
+        published: XXXXX
+        protocol: tcp
+        mode: host
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+
+#Shreddit - Application for clearing reddit history
+  shreddit:
+    image: mitchtalmadge/shreddit-dockerized:latest
+    container_name: shreddit
+    restart: unless-stopped
+    volumes:
+      - ${USERDIR}/docker/shreddit:/app/config
+    environment:
+      UID: ${PUID}
+      GID: ${PGID}
+      #      CRON: "0/5 * * * *"
+
+######### SMART HOME APPS ##########
+
+# Home Assistant - Smart Home Hub
+  homeassistant:
+    container_name: homeassistant
+    hostname: hass
+    restart: always
+    image: homeassistant/home-assistant:latest
+    network_mode: host
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+      - /dev/ttyUSB1:/dev/ttyUSB1
+        #      - /devttyACM0:/dev/ttyACM0
+    volumes:
+      - ${USERDIR}/docker/hassconfig:/config
+      - /etc/localtime:/etc/localtime:ro
+      - ${USERDIR}/docker/shared:/shared
+    ports:
+      - "XXXXX:8123"
+    privileged: true
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+
 ######### DOWNLOADERS ##########
+
 # Transmission with VPN – Bittorrent Downloader
   transmission-vpn:
     container_name: transmission-vpn
@@ -62,16 +157,14 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - ${USERDIR}/docker/transmission-vpn:/data
       - ${USERDIR}/docker/shared:/shared
-      - ${USERDIR}/Downloads:/downloads/watch
-      - ${USERDIR}/Downloads/completed:/downloads/completed
-      - ${USERDIR}/Downloads/incomplete:/downloads/incomplete
+      - ${USERDIR}/transmission/Downloads:/downloads
     environment:
-      - OPENVPN_PROVIDER=XXXX
-      - OPENVPN_USERNAME=XXXXXXX
-      - OPENVPN_PASSWORD=XXXXXXXXXXXXX
-      - OPENVPN_CONFIG=XXXXXXXXXXXXX
+      - OPENVPN_PROVIDER=OVPN
+      - OPENVPN_USERNAME=XXXXX
+      - OPENVPN_PASSWORD=XXXXXXXXXX
+      - OPENVPN_CONFIG=Germany
       - OPENVPN_OPTS=--inactive 3600 --ping 10 --ping-exit 60
-      - LOCAL_NETWORK=X.X.X.X/24
+      - LOCAL_NETWORK=192.168.88.0/24
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
@@ -79,9 +172,8 @@ services:
       - TRANSMISSION_RPC_HOST_WHITELIST="127.0.0.1,192.168.*.*"
       - TRANSMISSION_RPC_PASSWORD=${TRANSMISSION_RPC_PASSWORD}
       - TRANSMISSION_RPC_USERNAME=${TRANSMISSION_RPC_USERNAME}
-      - TRANSMISSION_UMASK=002
       - TRANSMISSION_RATIO_LIMIT=2
-      - TRANSMISSION_RATIO_LIMIT_ENABLED=true
+      - TRANSMISSION_RATIO_LIMIT_ENABLED=false
       - TRANSMISSION_ALT_SPEED_DOWN=2000
       - TRANSMISSION_ALT_SPEED_ENABLED=false
       - TRANSMISSION_ALT_SPEED_UP=15
@@ -91,34 +183,19 @@ services:
       - TRANSMISSION_SPEED_LIMIT_UP_ENABLED=false
       - TRANSMISSION_INCOMPLETE_DIR=/downloads/incomplete
       - TRANSMISSION_INCOMPLETE_DIR_ENABLED=true
-      - TRANSMISSION_WATCH_DIR=/downloads
-      - TRANSMISSION_WATCH_DIR_ENABLED=true
+      - TRANSMISSION_WATCH_DIR_ENABLED=false
       - TRANSMISSION_DOWNLOAD_DIR=/downloads/completed
       - TRANSMISSION_PEER_PORT=58433
-      - TRANSMISSION_PEER_LIMIT_PER_TORRENT=5000
-      - TRANSMISSION_PEER_LIMIT_GLOBAL=20000
-      - TRANSMISSION_MAX_PEERS_GLOBAL=50000
+      - TRANSMISSION_PEER_LIMIT_PER_TORRENT=200
+      - TRANSMISSION_PEER_LIMIT_GLOBAL=1000
+      - TRANSMISSION_MAX_PEERS_GLOBAL=2000
       - TRANSMISSION_DOWNLOAD_QUEUE_SIZE=10
-    sysctls:
-      - net.ipv6.conf.all.disable_ipv6=0
-# SABnzbd – Usenet (NZB) Downloader
-  sabnzbd:
-    image: "linuxserver/sabnzbd"
-    hostname: sabnzbd
-    container_name: "sabnzbd"
-    volumes:
-      - ${USERDIR}/docker/sabnzbd:/config
-      - ${USERDIR}/Downloads/completed:/downloads
-      - ${USERDIR}/Downloads/incomplete:/incomplete-downloads
-      - ${USERDIR}/docker/shared:/shared
-    ports:
-        - "XXXXX:8080"
-    restart: always
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
+      - TRANSMISSION_WEB_UI=flood
+#    sysctls:
+#      - net.ipv6.conf.all.disable_ipv6=0
+
 ######### PERSONAL VIDEO RECORDERS ##########
+
 # Radarr – Movie Download and Management
   radarr:
     image: "linuxserver/radarr"
@@ -126,8 +203,8 @@ services:
     container_name: "radarr"
     volumes:
       - ${USERDIR}/docker/radarr:/config
-      - ${USERDIR}/Downloads/completed:/downloads/completed
-      - /location/to/your/files:/movies
+      - ${USERDIR}/transmission/Downloads/completed:/downloads/completed
+      - /disks/Movies:/movies
       - /etc/localtime:/etc/localtime:ro
       - ${USERDIR}/docker/shared:/shared
     ports:
@@ -137,6 +214,7 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
+
 # Sonarr – TV Show Download and Management
   sonarr:
     image: "linuxserver/sonarr"
@@ -144,8 +222,10 @@ services:
     container_name: "sonarr"
     volumes:
       - ${USERDIR}/docker/sonarr:/config
-      - ${USERDIR}/Downloads/completed:/downloads/completed
-      - /location/to/your/files:/tv
+      - ${USERDIR}/transmission/Downloads/completed:/downloads/completed
+      - /disks/TV:/tv
+      - /disks/Anime:/anime
+      - /disks/Anime2:/anime2
       - /etc/localtime:/etc/localtime:ro
       - ${USERDIR}/docker/shared:/shared
     ports:
@@ -155,7 +235,55 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
+
+# Bazarr - Subtitle manager for Movies and TV Shows
+  bazarr:
+    image: ghcr.io/linuxserver/bazarr
+    hostname: bazarr
+    container_name: "bazarr"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${USERDIR}/docker/bazarr:/config
+      - /disks/Movies:/movies
+      - /disks/TV:/tv
+    ports:
+      - "XXXXX:6767"
+    restart: always
+
 ######## MEDIA SERVER APPS ########
+
+# Plex Media Server
+  plexms:
+    container_name: plexms
+    hostname: plexms
+    restart: always
+    network_mode: host
+    image: ghcr.io/linuxserver/plex
+    volumes:
+      - ${USERDIR}/docker/plexms:/config
+      - ${USERDIR}/Downloads/plex_tmp:/transcode
+      - /disks:/media
+      - ${USERDIR}/docker/shared:/shared
+        #ports:
+        #- "32400:32400/tcp"
+        #- "33400:33400/tcp"
+        #- "3005:3005/tcp"
+        #- "8324:8324/tcp"
+        #- "32469:32469/tcp"
+        #- "1900:1900/udp"
+        #- "32410:32410/udp"
+        #- "32412:32412/udp"
+        #- "32413:32413/udp"
+        #- "32414:32414/udp"
+    environment:
+      - TZ=${TZ}
+      - HOSTNAME="XXXXX"
+      - PLEX_UID=${PUID}
+      - PLEX_GID=${PGID}
+
 # Tautulli (aka PlexPy) – Monitoring Plex Usage
   tautulli:
     container_name: tautulli
@@ -172,12 +300,14 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
+
 # Ombi – Accept Requests for your Media Server
   ombi:
     container_name: ombi
     hostname: ombi
     restart: always
-    image: linuxserver/ombi
+    image: ghcr.io/linuxserver/ombi
+    #    image: linuxserver/ombi:version-v4.0.720
     volumes:
       - ${USERDIR}/docker/ombi:/config
       - ${USERDIR}/docker/shared:/shared
@@ -187,14 +317,34 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
+
+# Kitana - For Plex Plug-ins
+  kitana:
+    image: pannal/kitana:latest
+    container_name: kitana
+    hostname: kitana
+    restart: always
+    #  command: -B 0.0.0.0:31337 -p /kitana -P
+    volumes:
+      - ${USERDIR}/docker/kitana:/app/data
+    ports:
+      - XXXXX:31337
+    links:
+      - plexms
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+
 ######### SEARCHERS ##########
+
 # Jackett - Torrent Proxy
   jackett:
     image: "linuxserver/jackett"
     container_name: "jackett"
     volumes:
       - ${USERDIR}/docker/jackett:/config
-      - ${USERDIR}/Downloads/completed:/downloads/completed
+      - ${USERDIR}/transmission/Downloads/completed:/downloads/completed
       - /etc/localtime:/etc/localtime:ro
       - ${USERDIR}/docker/shared:/shared
     ports:
@@ -204,25 +354,49 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
+
 ######### MONITORING #########
+
 # Netdata - System-wide monitoring
-  netdata:
-    image: netdata/netdata
-    hostname: (Replace with your hostname)
-    container_name: "netdata"
-    restart: always
-    ports:
-      - XXXXX:19999
-    cap_add:
-      - SYS_PTRACE
-    security_opt:
-      - apparmor:unconfined
-    volumes:
-      - /etc/os-release:/host/etc/os-release:ro
-      - /etc/passwd:/host/etc/passwd:ro
-      - /etc/group:/host/etc/group:ro
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    environment:
-      - PGID=${PGID}
+#   netdata:
+#     image: netdata/netdata
+#     hostname: netdata.snuffsis.se
+#     container_name: "netdata"
+#     restart: always
+#     ports:
+#       - XXXXX:19999
+#     cap_add:
+#       - SYS_PTRACE
+#     security_opt:
+#       - apparmor:unconfined
+#     volumes:
+#       - /etc/os-release:/host/etc/os-release:ro
+#       - /etc/passwd:/host/etc/passwd:ro
+#       - /etc/group:/host/etc/group:ro
+#       - /proc:/host/proc:ro
+#       - /sys:/host/sys:ro
+#       - /var/run/docker.sock:/var/run/docker.sock:ro
+#         #- ${USERDIR}/docker/netdata:/usr/share/netdata
+#     environment:
+#       - PGID=${PGID}
+
+######## GAMES   ########
+
+# Factorio - Server with Jonas
+#  factorio:
+#    image: "factoriotools/factorio"
+#    container_name: "factorio"
+#    volumes:
+#      - ${USERDIR}/docker/factorio:/factorio
+        # - /opt/factorio:/opt/factorio
+        #    ports:
+        #      - "34197:34197/udp"
+        #      - "27015:27015/tcp"
+        #    restart: always
+        #    network_mode: host
+        #    environment:
+        #      - PUID=${PUID}
+        #      - PGID=${PGID}
+        #      - TZ=${TZ}
+        #      - LOAD_LATEST_SAVE=false
+        #      - SAVE_NAME=jonas1
